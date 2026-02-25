@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Dayne EMA Scanner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#080810; color:#e2e8f0; font-family:'Courier New',monospace; max-width:430px; margin:0 auto; min-height:100vh; }
+  .header { background:linear-gradient(160deg,#0c0c1e,#130f2a); padding:18px 16px 14px; border-bottom:1px solid #1a1a2e; position:sticky; top:0; z-index:100; }
+  .header-row { display:flex; justify-content:space-between; align-items:center; }
+  .header-label { font-size:9px; color:#4a5568; letter-spacing:3px; margin-bottom:3px; }
+  .header-title { font-size:19px; font-weight:800; color:#fff; }
+  .header-title .blue { color:#38bdf8; }
+  .header-title .purple { color:#a78bfa; }
+  .badge { background:#38bdf808; border:1px solid #38bdf830; border-radius:10px; padding:8px 12px; text-align:center; font-size:10px; color:#38bdf8; }
+  .last-scan { font-size:9px; color:#374151; margin-top:6px; }
+  .controls { padding:12px 14px; background:#0c0c18; border-bottom:1px solid #1a1a2e; }
+  .filter-row { display:flex; gap:6px; margin-bottom:10px; }
+  .filter-btn { flex:1; padding:7px 2px; border-radius:7px; border:1px solid #1a1a2e; background:transparent; color:#4a5568; font-size:10px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .filter-btn.active { border-color:#38bdf8; background:#38bdf812; color:#38bdf8; }
+  .btn-row { display:flex; gap:8px; margin-bottom:8px; }
+  .scan-btn { flex:2; padding:13px; border-radius:10px; border:none; background:linear-gradient(135deg,#38bdf8,#a78bfa); color:#000; font-size:13px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .scan-btn:disabled { background:#1a1a2e; color:#4a5568; cursor:not-allowed; }
+  .add-btn { flex:1; padding:13px; border-radius:10px; border:1px solid #38bdf830; background:transparent; color:#38bdf8; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .debug-btn { width:100%; padding:10px; border-radius:8px; border:1px solid #f59e0b44; background:#f59e0b12; color:#f59e0b; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .add-row { display:flex; gap:6px; margin-top:8px; }
+  .add-input { flex:1; padding:10px 12px; border-radius:8px; border:1px solid #38bdf830; background:#080810; color:#e2e8f0; font-size:13px; font-family:inherit; outline:none; }
+  .add-confirm { padding:10px 14px; border-radius:8px; border:none; background:#38bdf8; color:#000; font-weight:800; cursor:pointer; font-family:inherit; }
+  .extra-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:8px; }
+  .extra-tag { font-size:10px; padding:2px 8px; background:#a78bfa18; border:1px solid #a78bfa44; border-radius:4px; color:#a78bfa; }
+  .progress-wrap { margin-top:10px; }
+  .progress-label { font-size:10px; color:#4a5568; margin-bottom:4px; }
+  .progress-label span { color:#38bdf8; }
+  .progress-bar { background:#1a1a2e; border-radius:4px; height:3px; }
+  .progress-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,#38bdf8,#a78bfa); transition:width 0.3s; }
+  .results { padding:12px 14px; }
+  .empty { text-align:center; padding:60px 20px; }
+  .empty-icon { font-size:52px; margin-bottom:12px; }
+  .empty-text { color:#374151; font-size:13px; }
+  .empty-sub { color:#1f2937; font-size:11px; margin-top:4px; }
+  .card { background:#0e0e1c; border:1px solid #1a1a2e; border-radius:12px; padding:14px; margin-bottom:10px; position:relative; overflow:hidden; }
+  .card.strong { border-color:#38bdf840; }
+  .card-top-line { position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#38bdf8,#a78bfa); }
+  .card-header { display:flex; justify-content:space-between; align-items:flex-start; }
+  .card-symbol { font-size:17px; font-weight:800; color:#f8fafc; }
+  .dual-tag { display:inline-block; padding:3px 8px; border-radius:5px; font-size:10px; font-weight:700; color:#38bdf8; background:#38bdf812; border:1px solid #38bdf840; margin-left:8px; }
+  .card-price { font-size:14px; color:#94a3b8; margin-top:3px; }
+  .card-tags { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+  .stag { display:inline-block; padding:3px 8px; border-radius:5px; font-size:10px; font-weight:700; }
+  .card-ema { display:flex; gap:6px; margin-top:10px; }
+  .ema-box { flex:1; background:#080810; border-radius:7px; padding:7px 9px; }
+  .ema-title { font-size:9px; color:#374151; margin-bottom:4px; letter-spacing:1px; }
+  .ema-val { font-size:10px; }
+  .ema-gap { font-size:10px; margin-top:3px; }
+  .debug-box { background:#0a0a0a; border:1px solid #f59e0b44; border-radius:8px; padding:10px; margin-bottom:10px; font-size:10px; color:#94a3b8; white-space:pre-wrap; word-break:break-all; max-height:300px; overflow-y:auto; }
+  .legend { margin-top:8px; padding:12px; background:#0e0e1c; border-radius:10px; border:1px solid #1a1a2e; }
+  .legend-title { font-size:9px; color:#374151; margin-bottom:6px; letter-spacing:1px; }
+  .legend-item { font-size:10px; color:#4a5568; line-height:1.9; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div>
+      <div class="header-label">DAYNE \u00b7 TRADING SYSTEM</div>
+      <div class="header-title">EMA <span class="blue">5</span> / <span class="purple">20</span> Scanner</div>
+    </div>
+    <div class="badge"><div style="font-size:18px;line-height:1">\ud83d\udce1</div><div style="margin-top:3px">4H \u00b7 1D</div></div>
+  </div>
+  <div class="last-scan" id="lastScan"></div>
+</div>
+
+<div class="controls">
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="setFilter('cross',this)">\ud83d\udd25 \u525b\u7a7f\u8d8a</button>
+    <button class="filter-btn" onclick="setFilter('above',this)">\ud83d\udcc8 EMA5>20</button>
+    <button class="filter-btn" onclick="setFilter('all',this)">\u5168\u90e8</button>
+  </div>
+  <div class="btn-row">
+    <button class="scan-btn" id="scanBtn" onclick="startScan()">\ud83d\ude80 \u958b\u59cb\u6383\u63cf</button>
+    <button class="add-btn" onclick="toggleAdd()">\uff0b \u52a0\u80a1\u7968</button>
+  </div>
+  <button class="debug-btn" onclick="runDebug()">\ud83d\udd27 API \u5075\u932f\u6e2c\u8a66</button>
+  <div class="add-row" id="addRow" style="display:none">
+    <input class="add-input" id="addInput" placeholder="\u4f8b: IREN, CRWV, PLTR" onkeydown="if(event.key==='Enter')addStocks()">
+    <button class="add-confirm" onclick="addStocks()">\u52a0\u5165</button>
+  </div>
+  <div class="extra-tags" id="extraTags"></div>
+  <div class="progress-wrap" id="progressWrap" style="display:none">
+    <div class="progress-label">\u6b63\u5728\u6383\u63cf\uff1a<span id="progressSymbol"></span></div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+</div>
+
+<div class="results" id="results">
+  <div class="empty">
+    <div class="empty-icon">\ud83d\udcca</div>
+    <div class="empty-text">\u9ede\u64ca\u300c\u958b\u59cb\u6383\u63cf\u300d</div>
+    <div class="empty-sub" id="stockCount"></div>
+  </div>
+</div>
+
+<script>
+const API_KEY = "d6f6jb9r01qvn4o20qo0d6f6jb9r01qvn4o20qog";
+
+const DEFAULT_STOCKS = [
+  "NVDA","AAPL","MSFT","GOOGL","META","AMZN","TSLA","AMD",
+  "CRWV","IREN","SMCI","AVGO","ARM","QCOM","MU",
+  "RKLB","PLTR","COIN","MSTR","GLD","SLV"
+];
+
+let extraStocks = [];
+let currentFilter = "cross";
+let allResults = [];
+
+function getAllStocks() { return [...new Set([...DEFAULT_STOCKS, ...extraStocks])]; }
+document.getElementById("stockCount").textContent = `\u6383\u63cf ${getAllStocks().length} \u96bb\u80a1\u7968`;
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResults();
+}
+
+function toggleAdd() {
+  const row = document.getElementById("addRow");
+  row.style.display = row.style.display === "none" ? "flex" : "none";
+}
+
+function addStocks() {
+  const val = document.getElementById("addInput").value.toUpperCase();
+  const parsed = val.split(/[\s,]+/).map(s=>s.trim()).filter(Boolean);
+  extraStocks = [...new Set([...extraStocks, ...parsed])];
+  document.getElementById("addInput").value = "";
+  document.getElementById("addRow").style.display = "none";
+  document.getElementById("extraTags").innerHTML = extraStocks.map(s=>`<span class="extra-tag">${s}</span>`).join("");
+  document.getElementById("stockCount").textContent = `\u6383\u63cf ${getAllStocks().length} \u96bb\u80a1\u7968`;
+}
+
+// DEBUG: Test API with one stock
+async function runDebug() {
+  const resultsEl = document.getElementById("results");
+  resultsEl.innerHTML = `<div class="debug-box">\ud83d\udd27 \u5075\u932f\u4e2d\uff0c\u6e2c\u8a66 NVDA + CRWV...\n</div>`;
+  const box = resultsEl.querySelector('.debug-box');
+
+  const now = Math.floor(Date.now() / 1000);
+  const from1D = now - 400 * 24 * 3600;
+  const from1H = now - 60 * 24 * 3600;
+
+  for (const sym of ["NVDA", "CRWV", "AAPL"]) {
+    box.textContent += `\n--- ${sym} ---\n`;
+    try {
+      // Test quote
+      const qUrl = `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${API_KEY}`;
+      const qRes = await fetch(qUrl);
+      const qData = await qRes.json();
+      box.textContent += `Quote: $${qData.c} (${qData.dp?.toFixed(2)}%)\n`;
+
+      // Test daily candles
+      const dUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${sym}&resolution=D&from=${from1D}&to=${now}&token=${API_KEY}`;
+      const dRes = await fetch(dUrl);
+      const dData = await dRes.json();
+      box.textContent += `Daily: status=${dData.s}, count=${dData.c?.length || 0}\n`;
+
+      // Test hourly candles
+      const hUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${sym}&resolution=60&from=${from1H}&to=${now}&token=${API_KEY}`;
+      const hRes = await fetch(hUrl);
+      const hData = await hRes.json();
+      box.textContent += `Hourly: status=${hData.s}, count=${hData.c?.length || 0}\n`;
+
+    } catch(e) {
+      box.textContent += `ERROR: ${e.message}\n`;
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  box.textContent += "\n\u2705 \u5075\u932f\u5b8c\u6210\uff01";
+}
+
+function calcEMA(prices, period) {
+  if (prices.length < period) return [];
+  const k = 2 / (period + 1);
+  let ema = prices.slice(0, period).reduce((a,b)=>a+b,0) / period;
+  const series = [ema];
+  for (let i = period; i < prices.length; i++) { ema = prices[i]*k + ema*(1-k); series.push(ema); }
+  return series;
+}
+
+function groupTo4H(closes) {
+  const grouped = [];
+  for (let i = 3; i < closes.length; i += 4) grouped.push(closes[i]);
+  return grouped;
+}
+
+function analyzeEMA(closes) {
+  if (!closes || closes.length < 22) return null;
+  const ema5 = calcEMA(closes, 5);
+  const ema20 = calcEMA(closes, 20);
+  if (ema5.length < 2 || ema20.length < 2) return null;
+  const n5=ema5.length, n20=ema20.length;
+  const e5now=ema5[n5-1], e20now=ema20[n20-1], e5prev=ema5[n5-2], e20prev=ema20[n20-2];
+  let recentCross = e5prev<=e20prev && e5now>e20now;
+  if (!recentCross) {
+    for (let i=Math.max(1
